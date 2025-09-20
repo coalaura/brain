@@ -8,7 +8,6 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/revrost/go-openrouter v0.2.4
 	golang.org/x/image v0.31.0
-	mvdan.cc/xurls/v2 v2.6.0
 )
 
 require (

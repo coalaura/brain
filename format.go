@@ -46,7 +46,7 @@ func formatMessage(brain *Brain, index *Index, message *discordgo.Message, inclu
 	if message.Flags&discordgo.MessageFlagsIsVoiceMessage != 0 {
 		result.Content.Text = "(Voice Message)"
 	} else {
-		content = CleanupMessageContent(content)
+		content = brain.CleanupMessageContent(content)
 
 		// Add embeds to content
 		for _, embed := range message.Embeds {
@@ -156,13 +156,17 @@ func formatEmbed(embed *discordgo.MessageEmbed) string {
 	return string(jsn)
 }
 
-func CleanupMessageContent(content string) string {
+func (b *Brain) CleanupMessageContent(content string) string {
 	if content == "" {
 		return ""
 	}
 
+	// answering with metadata
+	rgx := regexp.MustCompile(`(?mi)^(\[\d+] ?)?` + regexp.QuoteMeta(b.name) + `( ?\([\w ]+\))*: ?`)
+	content = rgx.ReplaceAllString(content, "")
+
 	// multiple newlines
-	rgx := regexp.MustCompile(`\n{2,}`)
+	rgx = regexp.MustCompile(`\n{2,}`)
 	content = rgx.ReplaceAllString(content, "\n")
 
 	// multiple spaces
