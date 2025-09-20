@@ -3,13 +3,12 @@ package brain
 import (
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/revrost/go-openrouter"
 )
 
-func (b *Brain) Load(s *discordgo.Session, channelId string, loc *time.Location) ([]openrouter.ChatCompletionMessage, error) {
+func (b *Brain) Load(s *discordgo.Session, channelId string) ([]openrouter.ChatCompletionMessage, error) {
 	var (
 		index    = NewIndex(b.messages)
 		messages = make([]openrouter.ChatCompletionMessage, 0, b.messages)
