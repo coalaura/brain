@@ -8,11 +8,13 @@ import (
 	"github.com/revrost/go-openrouter"
 )
 
-func (b *Brain) Load(s *discordgo.Session, channelId string) ([]openrouter.ChatCompletionMessage, error) {
+func (b *Brain) Build(s *discordgo.Session, channelId string) ([]openrouter.ChatCompletionMessage, error) {
 	var (
 		index    = NewIndex(b.messages)
 		messages = make([]openrouter.ChatCompletionMessage, 0, b.messages)
 	)
+
+	messages = append(messages, openrouter.SystemMessage(b.GetPrompt()))
 
 	fresh, err := s.ChannelMessages(channelId, b.messages, "", "", "")
 	if err != nil {
@@ -37,7 +39,7 @@ func (b *Brain) Load(s *discordgo.Session, channelId string) ([]openrouter.ChatC
 	slices.Reverse(fresh)
 
 	for _, message := range fresh {
-		completion := FormatMessage(b, index, message, important[message.ID])
+		completion := formatMessage(b, index, message, important[message.ID])
 
 		if completion != nil {
 			messages = append(messages, *completion)

@@ -7,18 +7,18 @@ import (
 	"github.com/revrost/go-openrouter"
 )
 
-type CodeRegion struct {
+type codeRegion struct {
 	Start int
 	End   int
 }
 
-func FindMarkdownCodeRegions(text string) []CodeRegion {
-	var regions []CodeRegion
+func findMarkdownCodeRegions(text string) []codeRegion {
+	var regions []codeRegion
 
 	inline := regexp.MustCompile(`\x60[^\x60\n]+?\x60`)
 
 	for _, match := range inline.FindAllStringIndex(text, -1) {
-		regions = append(regions, CodeRegion{
+		regions = append(regions, codeRegion{
 			Start: match[0],
 			End:   match[1],
 		})
@@ -27,7 +27,7 @@ func FindMarkdownCodeRegions(text string) []CodeRegion {
 	fenced := regexp.MustCompile(`(?m)^\x60\x60\x60[^\n]*\n(.*?\n)^\x60\x60\x60\s*$`)
 
 	for _, match := range fenced.FindAllStringIndex(text, -1) {
-		regions = append(regions, CodeRegion{
+		regions = append(regions, codeRegion{
 			Start: match[0],
 			End:   match[1],
 		})
@@ -36,7 +36,7 @@ func FindMarkdownCodeRegions(text string) []CodeRegion {
 	return regions
 }
 
-func IsInsideCodeBlock(pos int, regions []CodeRegion) bool {
+func isInsideCodeBlock(pos int, regions []codeRegion) bool {
 	for _, region := range regions {
 		if pos >= region.Start && pos < region.End {
 			return true
@@ -46,8 +46,8 @@ func IsInsideCodeBlock(pos int, regions []CodeRegion) bool {
 	return false
 }
 
-func SplitImagePairs(text string, attachments []*discordgo.MessageAttachment) []openrouter.ChatMessagePart {
-	code := FindMarkdownCodeRegions(text)
+func splitImagePairs(text string, attachments []*discordgo.MessageAttachment) []openrouter.ChatMessagePart {
+	code := findMarkdownCodeRegions(text)
 
 	rgx := regexp.MustCompile(`https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
 
@@ -92,7 +92,7 @@ func SplitImagePairs(text string, attachments []*discordgo.MessageAttachment) []
 		start := index + location[0]
 		end := index + location[1]
 
-		if IsInsideCodeBlock(start, code) {
+		if isInsideCodeBlock(start, code) {
 			push(index, end)
 
 			index = end
@@ -102,7 +102,7 @@ func SplitImagePairs(text string, attachments []*discordgo.MessageAttachment) []
 
 		url := text[start:end]
 
-		if !IsImage(url) {
+		if !isImage(url) {
 			push(index, end)
 
 			index = end
@@ -126,7 +126,7 @@ func SplitImagePairs(text string, attachments []*discordgo.MessageAttachment) []
 	}
 
 	for _, attachment := range attachments {
-		if !IsImage(attachment.URL) {
+		if !isImage(attachment.URL) {
 			continue
 		}
 

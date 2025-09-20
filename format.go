@@ -9,73 +9,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/revrost/go-openrouter"
-	"mvdan.cc/xurls/v2"
 )
 
-type Message struct {
-	ID string
-
-	Role       string
-	Author     string
-	Time       string
-	Content    string
-	Images     []string
-	ReplyingTo string
-}
-
-func NewCompletionMessage(id string) *Message {
-	return &Message{
-		ID: id,
-	}
-}
-
-func (m *Message) Full(index int, indices map[string]int) openrouter.ChatCompletionMessage {
-	message := openrouter.ChatCompletionMessage{
-		Role: m.Role,
-	}
-
-	text := fmt.Sprintf("[%d] %s", index, m.Author)
-
-	if m.ReplyingTo != "" {
-		ref, ok := indices[m.ReplyingTo]
-		if ok {
-			text += fmt.Sprintf(" (reply to %d)", ref)
-		}
-	}
-
-	text += fmt.Sprintf(" (%s)", m.Time)
-
-	if m.Content != "" {
-		text += fmt.Sprintf(": %s", m.Content)
-	}
-
-	if len(m.Images) == 0 {
-		message.Content.Text = text
-
-		return message
-	}
-
-	message.Content.Multi = []openrouter.ChatMessagePart{
-		{
-			Type: openrouter.ChatMessagePartTypeText,
-			Text: text,
-		},
-	}
-
-	for _, image := range m.Images {
-		message.Content.Multi = append(message.Content.Multi, openrouter.ChatMessagePart{
-			Type: openrouter.ChatMessagePartTypeImageURL,
-			ImageURL: &openrouter.ChatMessageImageURL{
-				URL:    image,
-				Detail: openrouter.ImageURLDetailAuto,
-			},
-		})
-	}
-
-	return message
-}
-
-func FormatMessage(brain *Brain, index *Index, message *discordgo.Message, includeImages bool) *openrouter.ChatCompletionMessage {
+func formatMessage(brain *Brain, index *Index, message *discordgo.Message, includeImages bool) *openrouter.ChatCompletionMessage {
 	var (
 		self    = brain.IsSelf(message)
 		content = message.ContentWithMentionsReplaced()
@@ -94,7 +30,7 @@ func FormatMessage(brain *Brain, index *Index, message *discordgo.Message, inclu
 	prefix := fmt.Sprintf(
 		"[%d] %s",
 		index.SetById(message.ID),
-		FormatAuthor(message.Author),
+		formatAuthor(message.Author),
 	)
 
 	if ref := message.ReferencedMessage; ref != nil {
@@ -104,7 +40,7 @@ func FormatMessage(brain *Brain, index *Index, message *discordgo.Message, inclu
 		}
 	}
 
-	prefix += fmt.Sprintf(" (%s): ", FormatTimestamp(message.Timestamp, brain.cfg.Timezone))
+	prefix += fmt.Sprintf(" (%s): ", formatTimestamp(message.Timestamp, brain.cfg.Timezone))
 
 	// Set content
 	if message.Flags&discordgo.MessageFlagsIsVoiceMessage != 0 {
@@ -112,7 +48,7 @@ func FormatMessage(brain *Brain, index *Index, message *discordgo.Message, inclu
 	} else {
 		// Add embeds to content
 		for _, embed := range message.Embeds {
-			formatted := FormatEmbed(embed)
+			formatted := formatEmbed(embed)
 			if formatted == "" {
 				continue
 			}
@@ -126,15 +62,15 @@ func FormatMessage(brain *Brain, index *Index, message *discordgo.Message, inclu
 
 		// Load images (if needed)
 		if includeImages && !self {
-			pairs := SplitImagePairs(content, message.Attachments)
+			pairs := splitImagePairs(content, message.Attachments)
 
 			if len(pairs) == 1 && pairs[0].Type == openrouter.ChatMessagePartTypeText {
 				result.Content.Text = pairs[0].Text
 			} else {
-				result.Content.Multi = LoadImagePairs(pairs, brain.cfg.ImageSize)
+				result.Content.Multi = loadImagePairs(pairs, brain.cfg.ImageSize)
 			}
 		} else {
-			result.Content.Text = FormatMessageContent(content)
+			result.Content.Text = formatMessageContent(content)
 		}
 	}
 
@@ -162,7 +98,7 @@ func FormatMessage(brain *Brain, index *Index, message *discordgo.Message, inclu
 	return result
 }
 
-func FormatAuthor(author *discordgo.User) string {
+func formatAuthor(author *discordgo.User) string {
 	if author.GlobalName != "" {
 		return author.GlobalName
 	}
@@ -170,7 +106,7 @@ func FormatAuthor(author *discordgo.User) string {
 	return author.Username
 }
 
-func FormatTimestamp(timestamp time.Time, loc *time.Location) string {
+func formatTimestamp(timestamp time.Time, loc *time.Location) string {
 	if loc != nil {
 		timestamp = timestamp.In(loc)
 	}
@@ -194,7 +130,7 @@ func FormatTimestamp(timestamp time.Time, loc *time.Location) string {
 	return fmt.Sprintf("%.0f days ago", diff.Hours()/24)
 }
 
-func FormatEmbed(embed *discordgo.MessageEmbed) string {
+func formatEmbed(embed *discordgo.MessageEmbed) string {
 	data := make(map[string]any)
 
 	if embed.Author != nil && embed.Author.Name != "" {
@@ -218,7 +154,7 @@ func FormatEmbed(embed *discordgo.MessageEmbed) string {
 	return string(jsn)
 }
 
-func FormatMessageContent(content string) string {
+func formatMessageContent(content string) string {
 	if content == "" {
 		return ""
 	}
@@ -271,43 +207,4 @@ func FormatMessageContent(content string) string {
 	content = rgx.ReplaceAllString(content, "")
 
 	return strings.TrimSpace(content)
-}
-
-func SplitMessage(content string, attachments []*discordgo.MessageAttachment) (string, []string) {
-	var images []string
-
-	for _, attachment := range attachments {
-		if !IsImage(attachment.URL) {
-			continue
-		}
-
-		images = append(images, attachment.URL)
-	}
-
-	seen := make(map[string]bool)
-
-	content = xurls.Strict().ReplaceAllStringFunc(content, func(match string) string {
-		uri := match
-
-		// Special case for tenor gif links
-		if strings.HasPrefix(uri, "https://tenor.com/view/") {
-			uri += ".gif"
-		}
-
-		if !IsImage(uri) {
-			return match
-		}
-
-		if seen[uri] || strings.HasPrefix(uri, "https://cdn.discordapp.com/emojis") {
-			return ""
-		}
-
-		seen[uri] = true
-
-		images = append(images, uri)
-
-		return ""
-	})
-
-	return FormatMessageContent(content), images
 }

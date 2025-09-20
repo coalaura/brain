@@ -35,7 +35,7 @@ var (
 	}
 )
 
-func TouchFile(path string) {
+func touchFile(path string) {
 	file, err := os.Create(path)
 	if err != nil {
 		return
@@ -44,7 +44,7 @@ func TouchFile(path string) {
 	file.Close()
 }
 
-func UrlBasename(uri string) string {
+func urlBasename(uri string) string {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return ""
@@ -53,13 +53,13 @@ func UrlBasename(uri string) string {
 	return strings.ToLower(filepath.Base(u.Path))
 }
 
-func IsImage(uri string) bool {
-	ext := filepath.Ext(UrlBasename(uri))
+func isImage(uri string) bool {
+	ext := filepath.Ext(urlBasename(uri))
 
 	return ext == ".jpg" || ext == ".jpeg" || ext == ".webp" || ext == ".png" || ext == ".gif"
 }
 
-func ImagePath(uri string) string {
+func imagePath(uri string) string {
 	dir := filepath.Join(os.TempDir(), "brain-cache")
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -73,8 +73,8 @@ func ImagePath(uri string) string {
 	return filepath.Join(dir, hex.EncodeToString(hash.Sum(nil)))
 }
 
-func LoadImage(uri string, maxSize uint) (string, error) {
-	path := ImagePath(uri)
+func loadImage(uri string, maxSize uint) (string, error) {
+	path := imagePath(uri)
 
 	files.Lock(path)
 	defer files.Unlock(path)
@@ -90,14 +90,14 @@ func LoadImage(uri string, maxSize uint) (string, error) {
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			TouchFile(path)
+			touchFile(path)
 
 			return "", errors.New(resp.Status)
 		}
 
 		img, _, err := image.Decode(resp.Body)
 		if err != nil {
-			TouchFile(path)
+			touchFile(path)
 
 			return "", err
 		}
@@ -152,7 +152,7 @@ func LoadImage(uri string, maxSize uint) (string, error) {
 	return fmt.Sprintf("data:image/jpeg;base64,%s", b64), nil
 }
 
-func LoadImagePairs(pairs []openrouter.ChatMessagePart, maxSize uint) []openrouter.ChatMessagePart {
+func loadImagePairs(pairs []openrouter.ChatMessagePart, maxSize uint) []openrouter.ChatMessagePart {
 	var (
 		wg sync.WaitGroup
 		mx sync.Mutex
@@ -164,7 +164,7 @@ func LoadImagePairs(pairs []openrouter.ChatMessagePart, maxSize uint) []openrout
 		}
 
 		wg.Go(func() {
-			b64, err := LoadImage(part.ImageURL.URL, maxSize)
+			b64, err := loadImage(part.ImageURL.URL, maxSize)
 
 			mx.Lock()
 			defer mx.Unlock()
