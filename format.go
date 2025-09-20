@@ -46,6 +46,8 @@ func formatMessage(brain *Brain, index *Index, message *discordgo.Message, inclu
 	if message.Flags&discordgo.MessageFlagsIsVoiceMessage != 0 {
 		result.Content.Text = "(Voice Message)"
 	} else {
+		content = CleanupMessageContent(content)
+
 		// Add embeds to content
 		for _, embed := range message.Embeds {
 			formatted := formatEmbed(embed)
@@ -70,7 +72,7 @@ func formatMessage(brain *Brain, index *Index, message *discordgo.Message, inclu
 				result.Content.Multi = loadImagePairs(pairs, brain.cfg.ImageSize)
 			}
 		} else {
-			result.Content.Text = formatMessageContent(content)
+			result.Content.Text = content
 		}
 	}
 
@@ -154,7 +156,7 @@ func formatEmbed(embed *discordgo.MessageEmbed) string {
 	return string(jsn)
 }
 
-func formatMessageContent(content string) string {
+func CleanupMessageContent(content string) string {
 	if content == "" {
 		return ""
 	}
