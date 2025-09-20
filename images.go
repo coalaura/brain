@@ -24,6 +24,7 @@ import (
 	_ "golang.org/x/image/webp"
 
 	"github.com/coalaura/lock"
+	"github.com/nfnt/resize"
 	"github.com/revrost/go-openrouter"
 )
 
@@ -72,7 +73,7 @@ func ImagePath(uri string) string {
 	return filepath.Join(dir, hex.EncodeToString(hash.Sum(nil)))
 }
 
-func LoadImage(uri string) (string, error) {
+func LoadImage(uri string, maxSize uint) (string, error) {
 	path := ImagePath(uri)
 
 	files.Lock(path)
@@ -99,6 +100,10 @@ func LoadImage(uri string) (string, error) {
 			TouchFile(path)
 
 			return "", err
+		}
+
+		if maxSize > 0 {
+			img = resize.Thumbnail(maxSize, maxSize, img, resize.Lanczos3)
 		}
 
 		file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
@@ -147,7 +152,7 @@ func LoadImage(uri string) (string, error) {
 	return fmt.Sprintf("data:image/jpeg;base64,%s", b64), nil
 }
 
-func LoadImagePairs(pairs []openrouter.ChatMessagePart) []openrouter.ChatMessagePart {
+func LoadImagePairs(pairs []openrouter.ChatMessagePart, maxSize uint) []openrouter.ChatMessagePart {
 	var (
 		wg sync.WaitGroup
 		mx sync.Mutex
@@ -159,7 +164,7 @@ func LoadImagePairs(pairs []openrouter.ChatMessagePart) []openrouter.ChatMessage
 		}
 
 		wg.Go(func() {
-			b64, err := LoadImage(part.ImageURL.URL)
+			b64, err := LoadImage(part.ImageURL.URL, maxSize)
 
 			mx.Lock()
 			defer mx.Unlock()

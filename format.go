@@ -104,7 +104,7 @@ func FormatMessage(brain *Brain, index *Index, message *discordgo.Message, inclu
 		}
 	}
 
-	prefix += fmt.Sprintf(" (%s): ", FormatTimestamp(message.Timestamp, brain.loc))
+	prefix += fmt.Sprintf(" (%s): ", FormatTimestamp(message.Timestamp, brain.cfg.Timezone))
 
 	// Set content
 	if message.Flags&discordgo.MessageFlagsIsVoiceMessage != 0 {
@@ -131,7 +131,7 @@ func FormatMessage(brain *Brain, index *Index, message *discordgo.Message, inclu
 			if len(pairs) == 1 && pairs[0].Type == openrouter.ChatMessagePartTypeText {
 				result.Content.Text = pairs[0].Text
 			} else {
-				result.Content.Multi = LoadImagePairs(pairs)
+				result.Content.Multi = LoadImagePairs(pairs, brain.cfg.ImageSize)
 			}
 		} else {
 			result.Content.Text = FormatMessageContent(content)
